@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -22,11 +22,7 @@ frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
 -- Make frame draggable
-local dragging
-local dragInput
-local dragStart
-local startPos
-
+local dragging, dragInput, dragStart, startPos
 frame.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		dragging = true
@@ -83,23 +79,24 @@ end
 local isSpinning = false
 local spinConnection
 
--- Super Jump
+-- Super Jump - Fixed with BodyVelocity for true super jump effect
 createButton("Super Jump", 40, function()
-	if humanoid then
-		humanoid.JumpPower = 100 -- Default is 50
-		player:FindFirstChild("PlayerGui"):SetTopbarTransparency(0.5) -- Visual feedback
-		wait(0.5)
-		player:FindFirstChild("PlayerGui"):SetTopbarTransparency(1)
+	if humanoid and rootPart then
+		-- Create temporary BodyVelocity for super jump
+		local bodyVelocity = Instance.new("BodyVelocity")
+		bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0)
+		bodyVelocity.Velocity = Vector3.new(0, 100, 0) -- Jump height
+		bodyVelocity.Parent = rootPart
+
+		-- Remove BodyVelocity after jump
+		game:GetService("Debris"):AddItem(bodyVelocity, 0.1)
 	end
 end)
 
 -- Speed Boost
 createButton("Speed Boost", 90, function()
 	if humanoid then
-		humanoid.WalkSpeed = 50 -- Default is 16
-		player:FindFirstChild("PlayerGui"):SetTopbarTransparency(0.5)
-		wait(0.5)
-		player:FindFirstChild("PlayerGui"):SetTopbarTransparency(1)
+		humanoid.WalkSpeed = 50  -- Default is 16
 	end
 end)
 
@@ -114,19 +111,16 @@ createButton("Reset", 140, function()
 				spinConnection:Disconnect()
 			end
 		end
-		humanoid:ChangeState(Enum.HumanoidStateType.Dead) -- Respawn player
+		humanoid.Health = 0  -- Respawn player
 	end
 end)
 
--- Spin
+-- Toggle Spin
 createButton("Toggle Spin", 190, function()
 	if humanoid and rootPart then
 		isSpinning = not isSpinning
 		if isSpinning then
-			if spinConnection then
-				spinConnection:Disconnect()
-			end
-			spinConnection = game:GetService("RunService").RenderStepped:Connect(function()
+			spinConnection = RunService.RenderStepped:Connect(function()
 				rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(10), 0)
 			end)
 		else
@@ -137,16 +131,16 @@ createButton("Toggle Spin", 190, function()
 	end
 end)
 
--- Kick (client-side effect, teleports another player away)
+-- Kick (client-side teleport of another player)
 createButton("Kick Player", 240, function()
-	local targetPlayer = Players:GetPlayers()[2] -- Get another player (not self)
-	if targetPlayer and targetPlayer.Character then
-		local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-		if targetRoot then
-			targetRoot.CFrame = CFrame.new(Vector3.new(1000, 100, 1000)) -- Teleport far away
-			player:FindFirstChild("PlayerGui"):SetTopbarTransparency(0.5)
-			wait(0.5)
-			player:FindFirstChild("PlayerGui"):SetTopbarTransparency(1)
+	local otherPlayers = Players:GetPlayers()
+	for _, targetPlayer in ipairs(otherPlayers) do
+		if targetPlayer ~= player and targetPlayer.Character then
+			local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+			if targetRoot then
+				targetRoot.CFrame = CFrame.new(0, 1000, 0)  -- Teleport far up (client visual)
+				break
+			end
 		end
 	end
 end)
@@ -160,7 +154,7 @@ player.CharacterAdded:Connect(function(newCharacter)
 		if spinConnection then
 			spinConnection:Disconnect()
 		end
-		spinConnection = game:GetService("RunService").RenderStepped:Connect(function()
+		spinConnection = RunService.RenderStepped:Connect(function()
 			rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(10), 0)
 		end)
 	end
